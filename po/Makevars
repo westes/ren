@@ -1,0 +1,18 @@
+# Makefile variables for PO directory in ren.
+
+DOMAIN = $(PACKAGE)
+
+subdir = po
+top_builddir = ..
+
+XGETTEXT_OPTIONS = --keyword=_ --keyword=N_
+
+COPYRIGHT_HOLDER = the authors of ren
+
+MSGID_BUGS_ADDRESS = $(PACKAGE_BUGREPORT)
+
+EXTRA_LOCALE_CATEGORIES =
+
+USE_MSGCTXT = no
+
+MSGMERGE_OPTIONS =

@@ -1,0 +1,61 @@
+ren renames multiple files in a directory according to a search pattern
+with wildcards and a replacement pattern, a la VMS (but better).  It
+checks for replacement name collisions and handles rename chains and
+cycles gracefully.
+
+For example, to change the extension of every .txt file to .bak:
+
+    ren '*.txt' '#1.bak'
+
+See ren.1 for the full description.
+
+Building
+========
+
+From a release tarball:
+
+    ./configure && make && make install
+
+From a git checkout, first generate the build system (needs autoconf,
+automake and gettext):
+
+    ./autogen.sh
+
+and then proceed as above.
+
+Translating
+===========
+
+Messages are translated with GNU gettext.  The template is
+po/ren.pot (make -C po ren.pot-update regenerates it).  Translations are
+coordinated through the Translation Project, https://translationproject.org/.
+
+Bugs
+====
+
+Please report bugs to westes575@gmail.com.
+
+History
+=======
+
+ren was written by Vladimir Lanin <lanin@csd2.nyu.edu> and submitted to
+comp.sources.unix (Volume 18, Issue 22) in 1988.  This is the author's
+comment from that posting:
+
+     This must have been done already by someone somewhere, but I could
+     not find it, so here goes.
+
+     Whereas mv can rename (as opposed to move) only one file at a time,
+     the following program (ren) can rename many files according to
+     search and replacement patterns, ala VMS (but better).  ren checks
+     for replacement name collisions and handles rename chains
+     gracefully.
+
+     Vladimir Lanin
+
+Rob Schipper <rvs@gol.com> ported it to Linux in 1997.  Will Estes
+<westes575@gmail.com> converted it to ANSI C, added autotools and
+gettext support, and licensed the result under the GNU General Public
+License, version 3 or (at your option) any later version.  The text of
+the license is in COPYING.  The original posting carried no license
+notice.
