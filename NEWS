@@ -8,6 +8,8 @@ ren NEWS -- history of user-visible changes.
 ** Fixed a heap overrun when breaking rename cycles, a crash on end of
    input at the overwrite prompt, and an off-by-one in the replacement
    name length check.
-** More than 20 wildcards in the search pattern is now an error instead
-   of overflowing a buffer.
+** The search pattern may now contain any number of wildcards.  It used
+   to be limited to 20, and exactly 20 overflowed a buffer by one entry.
+** With -v, the " (*)" marker for an overwritten file now goes to
+   standard output with the rest of the line instead of to standard error.
 ** Fixed the typo "substring numer" in an error message.

@@ -39,7 +39,6 @@
 # define MAXNAMLEN 255
 #endif
 
-#define MAXWILD 20
 #define MAXREP 40
 
 typedef struct rep{
@@ -63,9 +62,9 @@ typedef struct rep{
 static void procargs(int argc, char *argv[], int *pverbose, int *pdelstyle,
 	char **pfrom_pat, char **pto_pat, char **ppath);
 static int procdir(char *path, struct dirent ***pdot, REP ***pfilrep);
-static void checkpats(char *from_pat, char *to_pat);
+static int checkpats(char *from_pat, char *to_pat);
 static int getreps(struct dirent *dot[], int nfils, char *from_pat,
-	char *to_pat, REP *filrep[], REP **preps);
+	char *to_pat, int nwilds, REP *filrep[], REP **preps);
 static int scan(char *pat, char *s, char **start1, int *len1);
 static char *makerep(char *pat, char **start, int *len);
 static void checkcollisons(REP *reps, int nreps);
@@ -84,7 +83,7 @@ main(int argc, char *argv[])
 {
 	char *from_pat, *to_pat, *path;
 	int verbose, delstyle;
-	int nfils, nreps;
+	int nfils, nreps, nwilds;
 	struct dirent **dot;
 	REP *reps, **filrep;
 	char **tempnames;
@@ -94,9 +93,9 @@ main(int argc, char *argv[])
 	textdomain(PACKAGE);
 
 	procargs(argc, argv, &verbose, &delstyle, &from_pat, &to_pat, &path);
-	checkpats(from_pat, to_pat);
+	nwilds = checkpats(from_pat, to_pat);
 	nfils = procdir(path, &dot, &filrep);
-	nreps = getreps(dot, nfils, from_pat, to_pat, filrep, &reps);
+	nreps = getreps(dot, nfils, from_pat, to_pat, nwilds, filrep, &reps);
 	checkcollisons(reps, nreps);
 	checkdeletes(reps, dot, filrep, nfils, delstyle);
 	tempnames = breakcycles(reps, nreps, dot);
@@ -157,7 +156,7 @@ procargs(int argc, char *argv[], int *pverbose, int *pdelstyle,
 }
 
 
-static void
+static int
 checkpats(char *from_pat, char *to_pat)
 {
 	char *p;
@@ -171,12 +170,6 @@ checkpats(char *from_pat, char *to_pat)
 		}
 		else if (*p == '*' || *p == '?')
 			nwilds++;
-	}
-	if (nwilds > MAXWILD) {
-		fprintf(stderr,
-			_("Too many wildcards in the search pattern (at most %d).\n"),
-			MAXWILD);
-		exit(1);
 	}
 
 	for (p = to_pat; *p != '\0'; p++) {
@@ -206,6 +199,7 @@ checkpats(char *from_pat, char *to_pat)
 				break;
 		}
 	}
+	return(nwilds);
 }
 
 
@@ -234,12 +228,17 @@ procdir(char *path, struct dirent ***pdot, REP ***pfilrep)
 
 static int
 getreps(struct dirent *dot[], int nfils, char *from_pat, char *to_pat,
-	REP *filrep[], REP **preps)
+	int nwilds, REP *filrep[], REP **preps)
 {
-	char *(start[MAXWILD]);
-	int len[MAXWILD];
+	char **start;
+	int *len;
 	int nreps, i;
 	REP *cur;
+
+	/* scan() stores one entry per wildcard and also clears the entry
+	   after the last one, so allocate one more than there are wildcards. */
+	start = (char **)malloc((nwilds + 1) * sizeof(char *));
+	len = (int *)malloc((nwilds + 1) * sizeof(int));
 
 	for (*preps = NULL, nreps = 0, i = 0; i < nfils; i++) {
 		if (
@@ -266,6 +265,8 @@ getreps(struct dirent *dot[], int nfils, char *from_pat, char *to_pat,
 		else
 			filrep[i] = NULL;
 	}
+	free(start);
+	free(len);
 	if (nreps == 0) {
 		fputs(_("No match.\n"), stderr);
 		exit(1);
@@ -544,7 +545,7 @@ dorenames(REP *reps, struct dirent *dot[], char *tempnames[], int verbose)
 					else if (verbose) {
 						printf("%s -> %s", fromname, cur->repname);
 						if (cur->mustdel >= 0)
-							fputs(" (*)", stderr);
+							fputs(" (*)", stdout);
 						putchar('\n');
 					}
 				}
