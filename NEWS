@@ -10,6 +10,9 @@ ren NEWS -- history of user-visible changes.
    name length check.
 ** The search pattern may now contain any number of wildcards.  It used
    to be limited to 20, and exactly 20 overflowed a buffer by one entry.
+** The replacement pattern can refer to any wildcard with #{n}, as in
+   #{12}.  #1 through #9 work as before; #12 is still wildcard 1
+   followed by the character 2.
 ** With -v, the " (*)" marker for an overwritten file now goes to
    standard output with the rest of the line instead of to standard error.
 ** Fixed the typo "substring numer" in an error message.

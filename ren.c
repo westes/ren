@@ -62,6 +62,7 @@ typedef struct rep{
 static void procargs(int argc, char *argv[], int *pverbose, int *pdelstyle,
 	char **pfrom_pat, char **pto_pat, char **ppath);
 static int procdir(char *path, struct dirent ***pdot, REP ***pfilrep);
+static int refspan(const char *p, int *n);
 static int checkpats(char *from_pat, char *to_pat);
 static int getreps(struct dirent *dot[], int nfils, char *from_pat,
 	char *to_pat, int nwilds, REP *filrep[], REP **preps);
@@ -133,7 +134,8 @@ procargs(int argc, char *argv[], int *pverbose, int *pdelstyle,
 			"\n"
 			"Search patterns containing wildcard(s) should be quoted.\n"
 			"Put #n into the replacement pattern to insert the string\n"
-			"matched by the n'th wildcard in the search pattern.\n"),
+			"matched by the n'th wildcard in the search pattern.\n"
+			"Write #{n} for wildcards numbered above 9.\n"),
 			stderr);
 		exit(1);
 	}
@@ -156,11 +158,42 @@ procargs(int argc, char *argv[], int *pverbose, int *pdelstyle,
 }
 
 
+/* P points at a '#' in a replacement pattern.  Return the length of the
+   wildcard reference there: "#n" for a single digit 1-9, or "#{n}" for
+   any number.  Set *N to the number, or to 0 if the reference is
+   malformed or numbered 0, in which case the length covers as much text
+   as is worth quoting in an error message.  */
+static int
+refspan(const char *p, int *n)
+{
+	int len, value;
+
+	*n = 0;
+	if (p[1] >= '1' && p[1] <= '9') {
+		*n = p[1] - '0';
+		return(2);
+	}
+	if (p[1] != '{')
+		return(p[1] == '\0' ? 1 : 2);
+	value = 0;
+	for (len = 2; p[len] >= '0' && p[len] <= '9'; len++)
+		if (value < 100000000)
+			value = value * 10 + (p[len] - '0');
+	if (len > 2 && p[len] == '}') {
+		*n = value;
+		return(len + 1);
+	}
+	while (p[len] != '\0' && p[len] != '}')
+		len++;
+	return(p[len] == '}' ? len + 1 : len);
+}
+
+
 static int
 checkpats(char *from_pat, char *to_pat)
 {
 	char *p;
-	int nwilds;
+	int nwilds, n, span;
 
 	for (nwilds = 0, p = from_pat; *p != '\0'; p++) {
 		if (*p == '\\') {
@@ -180,18 +213,19 @@ checkpats(char *from_pat, char *to_pat)
 		}
 		else if (*p == '*' || *p == '?') {
 			fputs(_("No wildcards allowed in replacement pattern.\n"
-				"Use #n to insert the substring matched\n"
+				"Use #n, or #{n} above 9, to insert the substring matched\n"
 				"by the n'th wildcard in the search pattern.\n"), stderr);
 			exit(1);
 		}
 		else if (*p == '#') {
-			if (*(p+1) < '1' || *(p+1) > '9' || *(p+1) - '0' > nwilds) {
-				fprintf(stderr, _("#%c: bad substring number.\n"
+			span = refspan(p, &n);
+			if (n < 1 || n > nwilds) {
+				fprintf(stderr, _("%.*s: bad substring number.\n"
 					"(Use '\\#' to get '#' in replacement string.)\n"),
-					*(p+1));
+					span, p);
 				exit(1);
 			}
-			p++;
+			p += span - 1;
 		}
 		else if (*p == '\\') {
 			p++;
@@ -324,15 +358,16 @@ scan(char *pat, char *s, char **start1, int *len1)
 static char *
 makerep(char *pat, char **start, int *len)
 {
-	int i, k;
+	int i, k, span;
 	char *q, *p, *res;
 	char b[MAXNAMLEN + 1];
 
 	p = b;
 	for ( ; *pat != '\0'; pat++) {
 		if (*pat == '#') {
-			pat++;
-			k = *pat - '1';
+			span = refspan(pat, &k);
+			pat += span - 1;
+			k--;
 			if (p - b + len[k] > MAXNAMLEN) {
 				fputs(_("Replacement name too long.\n"), stderr);
 				exit(1);

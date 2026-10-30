@@ -42,7 +42,9 @@ with embedded
 .I wildcard
 .IR indexes ,
 each of which consists of the character # followed by a digit
-from 1 to 9.
+from 1 to 9, or by a number in braces, as in #{12}.
+The braces are needed for wildcards numbered above 9,
+since #12 means wildcard 1 followed by the character 2.
 In the new name of a matching file,
 the wildcard indexes are replaced by the
 actual characters that matched the referenced wildcards
