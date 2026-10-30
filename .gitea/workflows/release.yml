@@ -1,0 +1,73 @@
+name: release
+# Push a v* tag to publish a release: vX.Y.Z, or vX.Y.Z-rcN for a release
+# candidate to send to the Translation Project.  Run by hand (workflow_dispatch)
+# to build and check without publishing anything.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build tools
+        run: |
+          SUDO=; [ "$(id -u)" -ne 0 ] && SUDO=sudo
+          $SUDO apt-get update
+          $SUDO apt-get install -y autoconf automake autopoint gettext gcc make jq
+      - name: Work out the version
+        run: |
+          have=$(sed -n 's/^AC_INIT(\[ren\], \[\([^]]*\)\].*/\1/p' configure.ac)
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            want=${GITHUB_REF_NAME#v}
+            case $want in
+              *-rc*)
+                # The tarball must unpack to ren-X.Y.Z-rcN, so set the rc
+                # version in this checkout only.
+                [ "${want%%-rc*}" = "$have" ] ||
+                  { echo "tag $GITHUB_REF_NAME does not match configure.ac version $have"; exit 1; }
+                sed -i "s/^AC_INIT(\[ren\], \[$have\]/AC_INIT([ren], [$want]/" configure.ac
+                echo "PRERELEASE=true" >> "$GITHUB_ENV" ;;
+              *)
+                [ "$want" = "$have" ] ||
+                  { echo "tag $GITHUB_REF_NAME does not match configure.ac version $have"; exit 1; }
+                grep -q "^\* Noteworthy changes in release $want ([0-9]" NEWS ||
+                  { echo "NEWS has no dated section for release $want"; exit 1; }
+                echo "PRERELEASE=false" >> "$GITHUB_ENV" ;;
+            esac
+          else
+            want=$have
+            echo "PRERELEASE=false" >> "$GITHUB_ENV"
+          fi
+          echo "VERSION=$want" >> "$GITHUB_ENV"
+      - name: Build and check
+        run: |
+          ./autogen.sh
+          ./configure
+          make
+          make distcheck
+          tar tzf "ren-$VERSION.tar.gz" | grep -q "/po/ren.pot$" ||
+            { echo "tarball is missing po/ren.pot"; exit 1; }
+          sha256sum "ren-$VERSION.tar.gz" > SHA256SUMS
+      - name: Publish the release
+        if: github.ref_type == 'tag'
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          API: ${{ github.server_url }}/api/v1/repos/${{ github.repository }}
+        run: |
+          # The release notes are this version's NEWS section, if it has one.
+          awk -v v="$VERSION" '
+            /^\* Noteworthy changes in release / { show = (index($0, "release " v " ") > 0); next }
+            show' NEWS > notes.txt
+          [ -s notes.txt ] || echo "Release candidate $VERSION." > notes.txt
+          id=$(jq -n --arg tag "$GITHUB_REF_NAME" --arg name "ren $VERSION" \
+                  --rawfile body notes.txt --argjson pre "$PRERELEASE" \
+                  '{tag_name:$tag, name:$name, body:$body, prerelease:$pre}' |
+               curl -fsS -X POST "$API/releases" \
+                 -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
+                 -d @- | jq -r .id)
+          for f in "ren-$VERSION.tar.gz" SHA256SUMS; do
+            curl -fsS -X POST "$API/releases/$id/assets?name=$f" \
+              -H "Authorization: token $TOKEN" -F "attachment=@$f" > /dev/null
+          done

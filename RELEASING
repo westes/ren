@@ -1,0 +1,28 @@
+How to make a ren release
+
+1. Put the entries for the release in NEWS under a header like
+   "* Noteworthy changes in release 1.2.0 (unreleased)".
+
+2. Set the version in configure.ac (AC_INIT).  Use the next minor number
+   for a new feature and the next patch number for fixes only.
+
+3. For a release that adds or changes translatable messages, send a release
+   candidate to the Translation Project first:
+
+     git tag -a v1.2.0-rc1 -m "ren 1.2.0-rc1" && git push origin v1.2.0-rc1
+
+   The workflow publishes a pre-release whose tarball unpacks to
+   ren-1.2.0-rc1.  Email its URL to the coordinator, wait about a week,
+   then fetch the new .po files and commit them.
+
+4. Put the release date in the NEWS header, commit, and tag:
+
+     git tag -a v1.2.0 -m "ren 1.2.0" && git push origin master v1.2.0
+
+   The workflow (.gitea/workflows/release.yml) builds, runs make distcheck,
+   and publishes the tarball and SHA256SUMS as a Gitea release.  It fails
+   if the tag and the configure.ac version differ, or NEWS has no section
+   for the release.
+
+To check the build without publishing, run the "release" workflow by hand
+from the Actions page.

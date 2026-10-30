@@ -1,4 +1,4 @@
-AC_INIT([ren], [1.0], [westes575@gmail.com])
+AC_INIT([ren], [1.1.0], [westes575@gmail.com])
 AC_CONFIG_SRCDIR([ren.c])
 AC_CONFIG_AUX_DIR([build-aux])
 AC_CONFIG_MACRO_DIRS([m4])
