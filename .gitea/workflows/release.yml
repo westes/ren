@@ -47,7 +47,10 @@ jobs:
           ./configure
           make
           make distcheck
-          tar tzf "ren-$VERSION.tar.gz" | grep -q "/po/ren.pot$" ||
+          # No pipe into grep -q: it exits at the first match, and tar then
+          # dies of SIGPIPE, which pipefail reports as a failure.
+          tar tzf "ren-$VERSION.tar.gz" > tarball.list
+          grep -q "/po/ren.pot$" tarball.list ||
             { echo "tarball is missing po/ren.pot"; exit 1; }
           sha256sum "ren-$VERSION.tar.gz" > SHA256SUMS
       - name: Publish the release
